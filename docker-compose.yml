@@ -1,27 +1,80 @@
+version: '3.9'
+
+networks:
+  grid:
+    driver: bridge
+
 services:
+
   selenoid:
     image: aerokube/selenoid:latest-release
-    container_name: selenoid
-    network_mode: bridge
     platform: linux/amd64
+    container_name: selenoid
+    restart: unless-stopped
+    networks: [grid]
     ports:
       - "4444:4444"
     volumes:
-      - "./browsers.json:/etc/selenoid/browsers.json"
-      - "/var/run/docker.sock:/var/run/docker.sock"
-      - "./video:/opt/selenoid/video"
+      - ./config:/etc/selenoid:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./video:/opt/selenoid/video
+      - ./logs:/opt/selenoid/logs
+    environment:
+      - TZ=Europe/Warsaw
     command: >
-      -limit 5
+      -limit 10
+      -service-startup-timeout 30s
+      -enable-file-upload              
       -video-output-dir /opt/selenoid/video
       -log-output-dir /opt/selenoid/logs
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4444/status"]
+      interval: 10s
+      retries: 3
 
   selenoid-ui:
-    image: aerokube/selenoid-ui
+    image: aerokube/selenoid-ui:latest-release
     container_name: selenoid-ui
-    network_mode: bridge
-    platform: linux/amd64
+    restart: unless-stopped
+    networks: [grid]
+    depends_on: [selenoid]
     ports:
-      - "8080:8080"
-    depends_on:
-      - selenoid
-    command: ["--selenoid-uri", "http://selenoid:4444"]
+      - "9080:8080"
+    command:
+      - "--selenoid-uri=http://selenoid:4444"
+      - "--listen=:8080"
+      - "--timeout=3m0s"
+
+  ggr:
+    image: aerokube/ggr:latest
+    container_name: ggr
+    platform: linux/amd64
+    restart: unless-stopped
+    networks: [ grid ]
+    depends_on: [ selenoid ]
+    ports:
+      - "4445:4444"
+    volumes:
+      - ./ggr/quota:/etc/grid-router/quota:ro
+      - ./ggr/users.htpasswd:/etc/grid-router/users.htpasswd:ro
+      - ./ggr/config.toml:/etc/grid-router/config.toml:ro
+    command:
+      - --listen=:4444
+      - --quotaDir=/etc/grid-router/quota
+      - --users=/etc/grid-router/users.htpasswd
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4444/status"]
+      interval: 10s
+      retries: 3
+
+  ggr-ui:
+    image: aerokube/ggr-ui:latest-release
+    container_name: ggr-ui
+    restart: unless-stopped
+    networks: [grid]
+    depends_on: [ggr]
+    environment:
+      - GR_HOST=ggr
+      - GR_PORT=4444
+    ports:
+      - "8888:8080"
