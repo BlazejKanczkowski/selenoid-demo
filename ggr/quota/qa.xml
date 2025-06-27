@@ -1,0 +1,17 @@
+<qa>  <!-- nazwa pliku == nazwa użytkownika -->
+    <browser name="chrome" defaultVersion="125.0">
+        <version number="125.0">
+            <region name="selenoid">
+                <host name="selenoid" port="4444" path="/wd/hub"/>
+            </region>
+        </version>
+    </browser>
+
+    <browser name="firefox" defaultVersion="127.0">
+        <version number="125.0">
+            <region name="selenoid">
+                <host name="selenoid" port="4444" path="/wd/hub"/>
+            </region>
+        </version>
+    </browser>
+</qa>
